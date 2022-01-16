@@ -29,10 +29,19 @@ func Handler_userInfo() func(http.ResponseWriter, *http.Request) {
 }
 
 func Handler_login() func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request){
+	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-						
+
+		}
+	}
+}
+
+func Handler_CheckIDorEmail() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+
 		}
 	}
 }
