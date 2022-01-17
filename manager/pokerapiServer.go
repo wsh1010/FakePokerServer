@@ -28,9 +28,9 @@ func OpenServer() {
 	http.HandleFunc(URI_USER_INFO, Handler_login())
 
 	// 게임관련
-	http.HandleFunc(URI_GAME_READY, Handler_Game_Ready())
+	/*http.HandleFunc(URI_GAME_READY, Handler_Game_Ready())
 	http.HandleFunc(URI_GAME_STATUS, Handler_Game_Status())
-	http.HandleFunc(URI_GAME_ENDTURN, Handler_Game_Endturn())
+	http.HandleFunc(URI_GAME_ENDTURN, Handler_Game_Endturn())*/
 
 	err := http.ListenAndServe(":44447", nil)
 	if err != nil {
