@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+
+	"github.com/gofrs/uuid"
 )
 
 func main() {
@@ -13,4 +15,10 @@ func main() {
 			main()
 		}
 	}()
+
+	room_id, err := uuid.NewV4()
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(room_id)
 }
