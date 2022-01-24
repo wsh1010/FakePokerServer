@@ -14,11 +14,37 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-type requestBody struct {
-	RoomID  string `json:"room_id"`
-	Speak   string `json:"speak"`
-	BetCoin int    `json:"bet_coin"`
-	MyCoin  int    `json:"my_coin"`
+type endTurn_requestBody struct {
+	RoomID string `json:"room_id"`
+	Speak  string `json:"speak"`
+	MyBet  int    `json:"my_bet"`
+	MyCoin int    `json:"my_coin"`
+}
+type game_requestBody struct {
+	RoomID string `json:"room_id"`
+}
+
+type status_responseBody struct {
+	Status      string `json:"status"`
+	User        string `json:"user"`
+	MyStatus    string `json:"my_status"`
+	EnemyStatus string `json:"enemy_status"`
+	EnemyBet    int    `json:"enemy_bet"`
+	EnemyCoin   int    `json:"enemy_coin"`
+	Error       struct {
+		Code   int    `json:"code"`
+		String string `json:"string"`
+	} `json:"error"`
+}
+
+type result_responseBody struct {
+	Result  string `json:"result"`
+	GetCoin int    `json:"get_coin"`
+	Coin    int    `json:"coin"`
+	Error   struct {
+		Code   int    `json:"code"`
+		String string `json:"string"`
+	} `json:"error"`
 }
 
 func Handler_Game_Ready() func(http.ResponseWriter, *http.Request) {
@@ -34,12 +60,12 @@ func Handler_Game_Status() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			var body requestBody
+			var body game_requestBody
 			respBody, err := ioutil.ReadAll(r.Body)
 			if err != nil {
-
+				log.Println(err)
 			}
-			err = json.Unmarshal(respBody, body)
+			json.Unmarshal(respBody, &body)
 
 			w.WriteHeader(http.StatusOK)
 		}
@@ -50,8 +76,12 @@ func Handler_Game_Endturn() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPut:
-			body := r.Body
-			err := json.Unmarshal(body)
+			var body endTurn_requestBody
+			respBody, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				log.Println(err)
+			}
+			json.Unmarshal(respBody, &body)
 			w.WriteHeader(http.StatusOK)
 		}
 	}
@@ -61,9 +91,12 @@ func Handler_Game_Result() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPut:
-			body := r.Body
-			err := json.Unmarshal(body)
-			w.WriteHeader(http.StatusOK)
+			var body game_requestBody
+			respBody, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				log.Println(err)
+			}
+			json.Unmarshal(respBody, &body)
 		}
 	}
 }

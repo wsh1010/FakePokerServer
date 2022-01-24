@@ -2,8 +2,13 @@ package main
 
 import (
 	"log"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
-	"github.com/gofrs/uuid"
+	"fakepokerserver/manager"
 )
 
 func main() {
@@ -11,14 +16,21 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("recover : ", r)
-
+			time.Sleep(time.Second * 1)
 			main()
 		}
 	}()
 
-	room_id, err := uuid.NewV4()
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println(room_id)
+	done := make(chan int, 1)
+	done <- 1
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go manager.RunningServer(&wg, done)
+
+	<-signals
+	<-done
+
 }

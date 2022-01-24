@@ -4,9 +4,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 )
 
-const api_game = "/api/porker/"
+const api_game = "/api/poker/"
 const api_version = "v1"
 
 //api 추가
@@ -22,11 +23,19 @@ const (
 	URI_GAME_RESULT  = api_game + api_version + "/game/result"  // PUT : 턴을 마무리 한다.
 )
 
+func RunningServer(wg *sync.WaitGroup, done chan int) {
+	if wg != nil {
+		defer wg.Done()
+	}
+
+	OpenServer()
+}
+
 func OpenServer() {
 
 	//회원 관련
 	http.HandleFunc(URI_USER_INFO, Handler_userInfo())
-	http.HandleFunc(URI_USER_INFO, Handler_login())
+	http.HandleFunc(URI_USER_LOGIN, Handler_login())
 
 	// 게임관련
 	http.HandleFunc(URI_GAME_READY, Handler_Game_Ready())
@@ -34,9 +43,11 @@ func OpenServer() {
 	http.HandleFunc(URI_GAME_ENDTURN, Handler_Game_Endturn())
 	http.HandleFunc(URI_GAME_RESULT, Handler_Game_Endturn())
 
+	log.Println("server is running...")
 	err := http.ListenAndServe(":44447", nil)
 	if err != nil {
 		log.Println("Failed to listen : ", err)
 		os.Exit(1)
 	}
+
 }
