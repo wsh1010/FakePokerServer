@@ -8,7 +8,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var mysql *sql.DB
+var mysql `*sql.DB`
 
 func initDB() {
 	mysql, err := sql.Open("mysql", "root:apfhd0403@tcp(localhost:3306)/game_poker")
@@ -46,10 +46,16 @@ func ExecuteUpdateQuery(query string) error {
 	}
 	defer mysql.Close()
 
-	_, err = mysql.Exec("UPDATE t_users_gameinfo SET id = 'test4' WHERE id = 'tes4'")
+	result, err := mysql.Exec("UPDATE t_users_gameinfo SET id = 'test4' WHERE id = 'tes4'")
 	if err != nil {
 		log.Println("Failed to execute : ", err)
 		return err
 	}
-	return err
+
+	_, err = result.RowAffected()
+	if err != nil {
+		log.Println("Failed to execute : ", err)
+		return err
+	}
+	return nil
 }
