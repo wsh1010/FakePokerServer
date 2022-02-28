@@ -15,8 +15,8 @@ const api_version = "v1"
 //api 추가
 const (
 	// 회원 관련
-	URI_USER_INFO  = api_game + api_version + "/user/manage" // POST : 가입 GET : 조회 (ID 찾기 또는 비번) PUT : 수정 DELETE : 탈퇴
-	URI_USER_LOGIN = api_game + api_version + "/user/login"  // GET : 로그인 요청
+	URI_USER_INFO = api_game + api_version + "/user/info"     // POST : 가입 GET : 조회 (ID 찾기 또는 비번) PUT : 수정 DELETE : 탈퇴
+	URI_ADD_COIN  = api_game + api_version + "/user/addCoins" // GET : 코인 추가.
 
 	URI_JOIN_ROOM = api_game + api_version + "/rooms/random"
 	URI_EXIT_ROOM = api_game + api_version + "/rooms/"
@@ -41,11 +41,11 @@ func OpenServer() {
 
 	//회원 관련
 	http.HandleFunc(URI_USER_INFO, Handler_userInfo())
-	http.HandleFunc(URI_USER_LOGIN, Handler_login())
 
 	//대기실 관련
 	http.HandleFunc(URI_JOIN_ROOM, Handle_joinRoom())
 	http.HandleFunc(URI_EXIT_ROOM, Handle_ExitRoom())
+	http.HandleFunc(URI_ADD_COIN, handle_AddCoin())
 
 	// 게임관련
 	http.HandleFunc(URI_GAME_READY, Handler_Game_Ready())

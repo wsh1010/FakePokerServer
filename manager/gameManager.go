@@ -20,6 +20,7 @@ import (
 
 type status_user struct {
 	UserID     string
+	UserNick   string
 	UserStatus string
 	UserBet    int
 	Usercoins  int
@@ -28,21 +29,31 @@ type status_user struct {
 type endTurn_requestBody struct {
 	RoomID string `json:"room_id"`
 	Speak  string `json:"speak"`
-	MyBet  int    `json:"my_bet"`
-	MyCoin int    `json:"my_coin"`
+	MyBet  int    `json:"bet_coin"`
 }
 type game_requestBody struct {
 	RoomID string `json:"room_id"`
+	Status string `json:"status"`
 }
 
 type status_responseBody struct {
 	Status      string `json:"status"`
-	User        string `json:"user"`
+	Mynick      string `json:"my_nick"`
 	MyStatus    string `json:"my_status"`
+	MyBet       int    `json:"my_bet"`
+	MyCoins     int    `json:"my_coins"`
+	MyCard      int    `json:"my_card"`
+	Enemynick   string `json:"enemy_nick"`
 	EnemyStatus string `json:"enemy_status"`
 	EnemyBet    int    `json:"enemy_bet"`
 	EnemyCoins  int    `json:"enemy_coins"`
+	EnemyCard   int    `json:"enemy_card"`
 	Error       string `json:"error"`
+}
+
+type roomResult_responseBdy struct {
+	RoomID string `json:"room_id"`
+	Error  string `json:"error"`
 }
 
 type result_responseBody struct {
@@ -60,7 +71,7 @@ func Handler_Game_Ready() func(http.ResponseWriter, *http.Request) {
 			userID, exist := r.Header["Userid"]
 			if !exist {
 				log.Println("not userID")
-				w.WriteHeader(http.StatusNotFound)
+				w.WriteHeader(http.StatusNotImplemented)
 				return
 			}
 			respBody, err := ioutil.ReadAll(r.Body)
@@ -70,7 +81,7 @@ func Handler_Game_Ready() func(http.ResponseWriter, *http.Request) {
 				return
 			}
 			json.Unmarshal(respBody, &body)
-			result := SetUserRoomStatus(body.RoomID, userID[0], "ready", 1)
+			result := SetUserRoomStatus(body.RoomID, userID[0], body.Status, 1)
 			w.WriteHeader(result)
 		}
 	}
@@ -86,17 +97,18 @@ func Handler_Game_Status() func(http.ResponseWriter, *http.Request) {
 				var requestBody status_responseBody
 				requestBody.Error = "not userID"
 				requestBodyBytes, _ := json.Marshal(requestBody)
-				w.WriteHeader(http.StatusNotFound)
+				w.WriteHeader(http.StatusNotImplemented)
 				w.Write(requestBodyBytes)
 				return
 			}
 			URISplit := strings.Split(r.RequestURI, "/")
 			roomID := URISplit[len(URISplit)-1]
-			requestBody, result := GetRoomStatus(roomID, userID[0])
+			responseBody, result := GetRoomStatus(roomID, userID[0])
 
-			requestBodyBytes, _ := json.Marshal(requestBody)
+			responseBodyBytes, _ := json.Marshal(responseBody)
 			w.WriteHeader(result)
-			w.Write(requestBodyBytes)
+			w.Write(responseBodyBytes)
+			//log.Println(string(responseBodyBytes))
 		}
 	}
 }
@@ -109,7 +121,7 @@ func Handler_Game_Endturn() func(http.ResponseWriter, *http.Request) {
 			userID, exist := r.Header["Userid"]
 			if !exist {
 				log.Println("not userID")
-				w.WriteHeader(http.StatusNotFound)
+				w.WriteHeader(http.StatusNotImplemented)
 				return
 			}
 			respBody, err := ioutil.ReadAll(r.Body)
@@ -136,46 +148,59 @@ func Handler_Game_Result() func(http.ResponseWriter, *http.Request) {
 				var requestBody status_responseBody
 				requestBody.Error = "not userID"
 				requestBodyBytes, _ := json.Marshal(requestBody)
-				w.WriteHeader(http.StatusNotFound)
+				w.WriteHeader(http.StatusNotImplemented)
 				w.Write(requestBodyBytes)
 				return
 			}
 			URISplit := strings.Split(r.RequestURI, "/")
 			roomID := URISplit[len(URISplit)-1]
-			requestBody, result := GetResult(roomID, userID[0])
+			responseBody, result := GetResult(roomID, userID[0])
 			if result != http.StatusOK {
+				requestBodyBytes, _ := json.Marshal(responseBody)
 				w.WriteHeader(result)
-				requestBodyBytes, _ := json.Marshal(requestBody)
 				w.Write(requestBodyBytes)
 				return
 			}
-			result = SetUserRoomInit(roomID, userID[0], "wait")
-			requestBodyBytes, _ := json.Marshal(requestBody)
+			result = SetUserRoomInit(roomID, userID[0], "wait", "room")
+			responseBodyBytes, _ := json.Marshal(responseBody)
 			w.WriteHeader(result)
-			w.Write(requestBodyBytes)
+			w.Write(responseBodyBytes)
 		}
 	}
 }
 
 func Handle_joinRoom() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var responseBody roomResult_responseBdy
 		switch r.Method {
 		case http.MethodPut:
 			userID, exist := r.Header["Userid"]
 			if !exist {
 				log.Println("not userID")
-				w.WriteHeader(http.StatusNotFound)
+				responseBody.Error = "not userID"
+				responseBodyBytes, _ := json.Marshal(responseBody)
+				w.WriteHeader(http.StatusNotImplemented)
+				w.Write(responseBodyBytes)
 				return
 			}
-			JoinRoom(userID[0])
+			responseBody = JoinRoom(userID[0])
+			responseBodyBytes, _ := json.Marshal(responseBody)
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBodyBytes)
 		case http.MethodPost:
 			userID, exist := r.Header["Userid"]
 			if !exist {
 				log.Println("not userID")
-				w.WriteHeader(http.StatusNotFound)
+				responseBody.Error = "not userID"
+				responseBodyBytes, _ := json.Marshal(responseBody)
+				w.WriteHeader(http.StatusNotImplemented)
+				w.Write(responseBodyBytes)
 				return
 			}
-			CreateRoom(userID[0])
+			responseBody = CreateRoom(userID[0])
+			responseBodyBytes, _ := json.Marshal(responseBody)
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBodyBytes)
 		}
 	}
 }
@@ -187,12 +212,13 @@ func Handle_ExitRoom() func(http.ResponseWriter, *http.Request) {
 			userID, exist := r.Header["Userid"]
 			if !exist {
 				log.Println("not userID")
-				w.WriteHeader(http.StatusNotFound)
+				w.WriteHeader(http.StatusNotImplemented)
 				return
 			}
 			URISplit := strings.Split(r.RequestURI, "/")
 			roomID := URISplit[len(URISplit)-1]
 			ExitRoom(roomID, userID[0])
+			w.WriteHeader(http.StatusOK)
 		}
 	}
 }
@@ -229,7 +255,23 @@ func forgame() {
 	log.Println(room_id)
 }
 
-func CreateRoom(userID string) string {
+func CreateRoom(userID string) roomResult_responseBdy {
+	var result roomResult_responseBdy
+	query := fmt.Sprintf("SELECT status FROM t_users_gameinfo where id = '%s';", userID)
+	row, err := db.SelectQueryRow(query)
+	if err != nil {
+		log.Println("error : ", err)
+		result.Error = err.Error()
+		return result
+	}
+	var status string
+	row.Scan(&status)
+	if status != "wait" {
+		log.Println("User is not create Room. " + status)
+		result.Error = "User is not create Room."
+		return result
+	}
+
 	room_id, err := uuid.NewV4()
 	if err != nil {
 		log.Println(err)
@@ -238,13 +280,15 @@ func CreateRoom(userID string) string {
 	random := rand.New(timeSource)
 	card := shuffle(random)
 	dbCard := strings.Join(card, "-")
-	query := fmt.Sprintf("INSERT INTO t_rooms_info VALUES ('%s', '%s', NULL, '%d', '%s', NULL);", room_id.String(), "user_wait", 0, dbCard)
+	query = fmt.Sprintf("INSERT INTO t_rooms_info VALUES ('%s', '%s', NULL, '%d', '%s', NULL);", room_id.String(), "user_wait", 0, dbCard)
 	db.ExecuteQuery(query)
 	query = fmt.Sprintf("UPDATE t_users_gameinfo SET room_id = '%s', status = 'room', room_status = 'wait' WHERE id = '%s'", room_id.String(), userID)
 	db.ExecuteQuery(query)
-	return room_id.String()
+	result.RoomID = room_id.String()
+	return result
 }
-func JoinRoom(userID string) string {
+func JoinRoom(userID string) roomResult_responseBdy {
+	var result roomResult_responseBdy
 	query := "SELECT room_id FROM t_rooms_info WHERE status = 'user_wait';"
 	rows, err := db.SelectQueryRows(query)
 	if err != nil {
@@ -274,12 +318,46 @@ func JoinRoom(userID string) string {
 			query := fmt.Sprintf("UPDATE t_rooms_info SET status = 'ready_wait' where room_id = '%s';", rooms[room_num])
 			db.ExecuteQuery(query)
 		}
-		return rooms[room_num]
+		result.RoomID = rooms[room_num]
+		return result
 	}
 }
 
 func ExitRoom(roomID string, userID string) {
-	query := fmt.Sprintf("UPDATE t_rooms_info SET status = 'user_wait' where room_id = '%s';", roomID)
+	query := fmt.Sprintf("SELECT id, status, bet, coins FROM t_users_gameinfo WHERE room_id = '%s'", roomID)
+	rows, _ := db.SelectQueryRows(query)
+	var me status_user
+	var you status_user
+	for rows.Next() {
+		var id string
+		var status string
+		var bet int
+		var coin int
+		rows.Scan(&id, &status, &bet, &coin)
+
+		if id == userID {
+			me.UserID = id
+			me.UserStatus = status
+			me.UserBet = bet
+			me.Usercoins = coin
+		} else {
+			you.UserID = id
+			you.UserStatus = status
+			you.UserBet = bet
+			you.Usercoins = coin
+		}
+	}
+	if me.UserStatus == "room" {
+		me.Usercoins += me.UserBet
+		me.UserBet = 0
+		query = fmt.Sprintf("UPDATE t_users_gameinfo SET bet = '%d', coins = '%d' where room_id = '%s' and id = '%s'", me.UserBet, me.Usercoins, roomID, userID)
+		db.ExecuteQuery(query)
+	} else if me.UserStatus == "play" {
+		me.UserStatus = "die"
+		GameOver(roomID, me, you)
+	}
+
+	query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'user_wait', start_player = NULL where room_id = '%s';", roomID)
 	db.ExecuteQuery(query)
 	query = fmt.Sprintf("UPDATE t_users_gameinfo SET status = 'wait', room_id = null where room_id = '%s' and id = '%s'", roomID, userID)
 	db.ExecuteQuery(query)
@@ -290,7 +368,7 @@ func StartGame(roomID string, users_id []string) {
 	query := fmt.Sprintf("SELECT start_player, round FROM t_rooms_info WHERE room_id = '%s';", roomID)
 	row, _ := db.SelectQueryRow(query)
 	var round int
-	row.Scan(start_Player, &round)
+	row.Scan(&start_Player, &round)
 
 	if !start_Player.Valid {
 		timeSource := rand.NewSource(time.Now().UnixNano())
@@ -299,7 +377,6 @@ func StartGame(roomID string, users_id []string) {
 		start_Player.String = users_id[start_player_num]
 		round++
 		start_Player.Valid = true
-		log.Println("Start user : ", start_Player, start_player_num)
 		query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', start_player = '%s', round = '%d' WHERE room_id = '%s'", start_Player.String, round, roomID)
 		db.ExecuteQuery(query)
 	} else {
@@ -320,24 +397,9 @@ func StartGame(roomID string, users_id []string) {
 
 func GetRoomStatus(roomID string, userID string) (status_responseBody, int) {
 	var result status_responseBody
-	row, err := db.SelectQueryRow("SELECT Status FROM t_rooms_info WHERE room_id='" + roomID + "';")
-	if err != nil {
-		log.Println(err)
-		var error_result status_responseBody
-		error_result.Error = "DB Error"
-		return error_result, http.StatusInternalServerError
-	}
-
-	err = row.Scan(&result.Status)
-	if err != nil {
-		log.Println(err)
-		var error_result status_responseBody
-		error_result.Error = "RoomID Not Found"
-		return error_result, http.StatusNotFound
-	}
-
-	rows, err := db.SelectQueryRows("SELECT id, room_status, bet, coins FROM t_users_gameinfo WHERE room_id='" + roomID + "';")
-
+	var users_id []string
+	exist_user := false
+	rows, err := db.SelectQueryRows("SELECT t_users_gameinfo.`id`, t_users_gameinfo.`nick` ,t_rooms_info.`status`, t_users_gameinfo.`room_status` ,t_users_gameinfo.bet, t_users_gameinfo.coins, t_rooms_info.round, t_rooms_info.cards, t_rooms_info.start_player FROM t_rooms_info LEFT JOIN t_users_gameinfo ON t_rooms_info.room_id = t_users_gameinfo.room_id WHERE t_users_gameinfo.room_id = '" + roomID + "';")
 	if err != nil {
 		log.Println(err)
 		var error_result status_responseBody
@@ -345,25 +407,59 @@ func GetRoomStatus(roomID string, userID string) (status_responseBody, int) {
 		return error_result, http.StatusInternalServerError
 	}
 	defer rows.Close()
-	var users_id []string
+
 	for rows.Next() {
 		var user status_user
-		rows.Scan(&user.UserID, &user.UserStatus, &user.UserBet, &user.Usercoins)
-		users_id = append(users_id, user.UserID)
+		var game_status string
+		var cards string
+		var round int
+		var start_player sql.NullString
+		err = rows.Scan(&user.UserID, &user.UserNick, &game_status, &user.UserStatus, &user.UserBet, &user.Usercoins, &round, &cards, &start_player)
+		Cards := strings.Split(cards, "-")
+		cardnum := (round - 1) * 2
+		if err != nil {
+			log.Println(err)
+			var error_result status_responseBody
+			error_result.Error = "RoomID Not Found"
+			return error_result, http.StatusNotImplemented
+		}
 		if user.UserID == userID {
+			result.Mynick = user.UserNick
 			result.MyStatus = user.UserStatus
-			result.User = user.UserID
+			result.MyBet = user.UserBet
+			result.MyCoins = user.Usercoins
+			result.Status = game_status
+			exist_user = true
+			if game_status == "result" {
+				if start_player.String != userID {
+					cardnum += 1
+				}
+				result.MyCard, _ = strconv.Atoi(Cards[cardnum])
+			} else {
+				result.MyCard = 0
+			}
 		} else {
+			result.Enemynick = user.UserNick
 			result.EnemyBet = user.UserBet
 			result.EnemyCoins = user.Usercoins
 			result.EnemyStatus = user.UserStatus
+			if game_status == "play" || game_status == "result" {
+				if start_player.String != user.UserID {
+					cardnum += 1
+				}
+				result.EnemyCard, _ = strconv.Atoi(Cards[cardnum])
+			} else {
+				result.EnemyCard = 0
+			}
 		}
+		users_id = append(users_id, user.UserID)
 	}
-	if result.User == "" {
+
+	if !exist_user {
 		var error_result status_responseBody
 		log.Println("user not found")
 		error_result.Error = "User Not Found"
-		return error_result, http.StatusNotFound
+		return error_result, http.StatusNotImplemented
 	}
 
 	if result.EnemyStatus == "ready" && result.MyStatus == "ready" {
@@ -389,23 +485,16 @@ func GetResult(roomID string, userID string) (result_responseBody, int) {
 	if count <= 0 {
 		var error_result result_responseBody
 		error_result.Error = "Not found id or room"
-		return error_result, http.StatusNotFound
+		return error_result, http.StatusNotImplemented
 	}
 	return result, http.StatusOK
 }
 
-func SetUserRoomInit(roomID string, userID string, status string) int {
-	query := fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = '%s', bet = '0' where id = '%s' and room_id = '%s';", status, userID, roomID)
-	success, err := db.ExecuteQuery(query)
-
-	if err != nil {
-		log.Println("db Error")
-		return http.StatusInternalServerError
-	}
-	if success == 0 {
-		log.Println("Not found id or room")
-		return http.StatusNotFound
-	}
+func SetUserRoomInit(roomID string, userID string, room_status string, status string) int {
+	query := fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET status = '%s', room_status = '%s', bet = '0' where id = '%s' and room_id = '%s';", status, room_status, userID, roomID)
+	db.ExecuteQuery(query)
+	query = fmt.Sprintf("UPDATE T_ROOMS_INFO SET status = 'ready_wait' WHERE room_id = '%s'", roomID)
+	db.ExecuteQuery(query)
 
 	return http.StatusOK
 }
@@ -423,8 +512,13 @@ func SetUserRoomStatus(roomID string, userID string, status string, bet int) int
 		log.Println("already")
 		return http.StatusBadRequest
 	}
-	u_bet += bet
-	u_coins -= bet
+	if status == "ready" {
+		u_bet += bet
+		u_coins -= bet
+	} else {
+		u_coins += u_bet
+		u_bet = 0
+	}
 
 	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET bet = '%d', coins = '%d', room_status = '%s' where id = '%s' and room_id = '%s';", u_bet, u_coins, status, userID, roomID)
 	success, err := db.ExecuteQuery(query)
@@ -435,7 +529,7 @@ func SetUserRoomStatus(roomID string, userID string, status string, bet int) int
 	}
 	if success == 0 {
 		log.Println("Not found id or room")
-		return http.StatusNotFound
+		return http.StatusNotImplemented
 	}
 
 	return http.StatusOK
@@ -464,14 +558,11 @@ func ProcessResult(userID string, result endTurn_requestBody) {
 			user_You.UserBet = bet
 			user_You.Usercoins = coins
 		}
-
-	}
-	if err != nil {
-		return
 	}
 	defer rows.Close()
 	user_I.UserBet += result.MyBet
 	user_I.Usercoins -= result.MyBet
+
 	if user_I.UserBet == user_You.UserBet || result.Speak == "die" {
 		// 게임 종료
 		user_I.UserStatus = result.Speak
@@ -479,9 +570,9 @@ func ProcessResult(userID string, result endTurn_requestBody) {
 		return
 	}
 	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = 'wait', bet = '%d', coins = '%d' where id = '%s' and room_id = '%s';",
-		user_I.UserBet, user_I.Usercoins, userID, result.RoomID)
+		user_I.UserBet, user_I.Usercoins, user_I.UserID, result.RoomID)
 	db.ExecuteQuery(query)
-	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = 'turn' where id = '%s' and room_id = '%s';", userID, result.RoomID)
+	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = 'turn' where id = '%s' and room_id = '%s';", user_You.UserID, result.RoomID)
 	db.ExecuteQuery(query)
 }
 
@@ -555,5 +646,7 @@ func GameOver(room_id string, p1 status_user, p2 status_user) {
 	db.ExecuteQuery(query)
 	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = '%s', bet = '%d', coins = '%d' WHERE id = '%s' and room_id = '%s';",
 		p2.UserStatus, p2.UserBet, p2.Usercoins, p2.UserID, room_id)
+	db.ExecuteQuery(query)
+	query = fmt.Sprintf("UPDATE T_ROOMS_INFO SET status = 'result' WHERE room_id = '%s';", room_id)
 	db.ExecuteQuery(query)
 }

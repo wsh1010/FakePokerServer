@@ -68,6 +68,7 @@ func ExecuteQuery(query string) (int64, error) {
 	}
 	if success == 0 {
 		log.Println("Not Excute : 0")
+		return 0, err
 	}
 
 	return success, nil
