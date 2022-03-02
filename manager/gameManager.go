@@ -556,12 +556,41 @@ func ProcessResult(userID string, result endTurn_requestBody) {
 
 func GameOver(room_id string, p1 status_user, p2 status_user) {
 	if p1.UserStatus == "die" {
-		totalbets := p1.UserBet + p2.UserBet
-		p1.UserBet = 0
-		p1.UserStatus = "lose"
-		p2.UserBet = totalbets
-		p2.Usercoins += totalbets
-		p2.UserStatus = "win"
+		row, err := db.SelectQueryRow("SELECT round, cards, start_player from t_rooms_info")
+		if err != nil {
+			log.Println(err)
+		}
+		var card_string string
+		var round int
+		var player string
+		err = row.Scan(&round, &card_string, &player)
+		if err != nil {
+			log.Println(err)
+		}
+		Cards := strings.Split(card_string, "-")
+		cardnum := (round - 1) * 2
+		var my_card int64
+		if player == p1.UserID {
+			my_card, _ = strconv.ParseInt(Cards[cardnum], 10, 64)
+		} else {
+			my_card, _ = strconv.ParseInt(Cards[cardnum+1], 10, 64)
+		}
+		if my_card == 10 {
+			totalbets := p1.UserBet + p2.UserBet + 10
+			p1.UserBet = 0
+			p1.UserStatus = "lose"
+			p1.Usercoins -= 10
+			p2.UserBet = totalbets
+			p2.Usercoins += totalbets
+			p2.UserStatus = "win"
+		} else {
+			totalbets := p1.UserBet + p2.UserBet
+			p1.UserBet = 0
+			p1.UserStatus = "lose"
+			p2.UserBet = totalbets
+			p2.Usercoins += totalbets
+			p2.UserStatus = "win"
+		}
 	} else {
 		row, err := db.SelectQueryRow("SELECT round, cards, start_player from t_rooms_info")
 		if err != nil {
