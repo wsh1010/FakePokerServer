@@ -1,15 +1,13 @@
 package main
 
 import (
+	"fakepokerserver/manager"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
-
-	"fakepokerserver/manager"
-	"fakepokerserver/module/db"
 )
 
 func main() {
@@ -21,9 +19,6 @@ func main() {
 			main()
 		}
 	}()
-
-	db.InitDB()
-
 	done := make(chan int, 1)
 	done <- 1
 	signals := make(chan os.Signal, 1)
@@ -37,5 +32,4 @@ func main() {
 	<-signals
 	<-done
 	wg.Wait()
-
 }

@@ -357,7 +357,7 @@ func StartGame(roomID string, users_id []string) {
 	row, _ := db.SelectQueryRow(query)
 	var round int
 	row.Scan(&start_Player, &round)
-
+	now := time.Now().Format("2006-01-02 15:04:05")
 	if !start_Player.Valid {
 		timeSource := rand.NewSource(time.Now().UnixNano())
 		random := rand.New(timeSource)
@@ -365,17 +365,17 @@ func StartGame(roomID string, users_id []string) {
 		start_Player.String = users_id[start_player_num]
 		round++
 		start_Player.Valid = true
-		query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', start_player = '%s', round = '%d' WHERE room_id = '%s'", start_Player.String, round, roomID)
+		query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', start_player = '%s', round = '%d', start_time = '%s' WHERE room_id = '%s'", start_Player.String, round, now, roomID)
 		db.ExecuteQuery(query)
 	} else {
 		if round == 10 {
 			round = 1
 			dbCards := makeCards()
-			query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', cards = '%s', round = '%d' WHERE room_id = '%s'", dbCards, round, roomID)
+			query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', cards = '%s', round = '%d', start_time = '%s' WHERE room_id = '%s'", dbCards, round, now, roomID)
 			db.ExecuteQuery(query)
 		} else {
 			round++
-			query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', round = '%d' WHERE room_id = '%s'", round, roomID)
+			query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', round = '%d', start_time = '%s' WHERE room_id = '%s'", round, now, roomID)
 			db.ExecuteQuery(query)
 		}
 	}
@@ -548,6 +548,9 @@ func ProcessResult(userID string, result endTurn_requestBody) {
 		user_I.UserBet, user_I.Usercoins, user_I.UserID, result.RoomID)
 	db.ExecuteQuery(query)
 	query = fmt.Sprintf("UPDATE t_users_gameinfo SET room_status = 'turn' where id = '%s' and room_id = '%s';", user_You.UserID, result.RoomID)
+	db.ExecuteQuery(query)
+	now := time.Now().Format("2006-01-02 15:04:05")
+	query = fmt.Sprintf("UPDATE t_rooms_info SET start_time = '%s' WHERE room_id = '%s';", now, result.RoomID)
 	db.ExecuteQuery(query)
 }
 
