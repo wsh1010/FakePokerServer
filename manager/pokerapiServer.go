@@ -38,7 +38,6 @@ func RunningServer(wg *sync.WaitGroup, done chan int) {
 
 	}
 
-	db.InitDB()
 	OpenServer()
 }
 func CheckDB(wg *sync.WaitGroup, done chan int) {

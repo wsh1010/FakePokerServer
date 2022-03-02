@@ -2,6 +2,7 @@ package main
 
 import (
 	"fakepokerserver/manager"
+	"fakepokerserver/module/db"
 	"log"
 	"os"
 	"os/signal"
@@ -19,6 +20,7 @@ func main() {
 			main()
 		}
 	}()
+
 	done := make(chan int, 1)
 	done <- 1
 	signals := make(chan os.Signal, 1)
@@ -26,6 +28,7 @@ func main() {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
+	db.InitDB()
 	go manager.RunningServer(&wg, done)
 	go manager.CheckDB(&wg, done)
 
