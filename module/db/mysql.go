@@ -8,28 +8,28 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-//var mysql *sql.DB
+var Mysql *sql.DB
 
 func InitDB() {
-	mysql, err := sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
+	var err error
+	Mysql, err = sql.Open("mysql", "poker:fake@tcp(172.17.0.2:3306)/game_poker")
 	if err != nil {
 		panic(err)
 	}
-	defer mysql.Close()
-	mysql.SetConnMaxLifetime(time.Minute * 3)
-	mysql.SetMaxOpenConns(10)
-	mysql.SetMaxIdleConns(10)
+	Mysql.SetConnMaxLifetime(time.Minute * 3)
+	Mysql.SetMaxOpenConns(10)
+	Mysql.SetMaxIdleConns(10)
 }
 
 func SelectQueryRows(query string) (*sql.Rows, error) {
-	mysql, err := sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
+	/*mysql, err := sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
 	if err != nil {
 		log.Println("Failed to open db : ", err)
 		return nil, err
 	}
-	defer mysql.Close()
+	defer mysql.Close()*/
 
-	rows, err := mysql.Query(query)
+	rows, err := Mysql.Query(query)
 	if err != nil {
 		log.Println("Failed to execute : ", err)
 		return nil, err
@@ -38,25 +38,26 @@ func SelectQueryRows(query string) (*sql.Rows, error) {
 }
 
 func SelectQueryRow(query string) (*sql.Row, error) {
-	mysql, err := sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
+	/*mysql, err := sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
 	if err != nil {
 		log.Println("Failed to open db : ", err)
 		return nil, err
 	}
-	defer mysql.Close()
-	row := mysql.QueryRow(query)
+	defer mysql.Close()*/
+
+	row := Mysql.QueryRow(query)
 	return row, nil
 }
 
 func ExecuteQuery(query string) (int64, error) {
-	mysql, err := sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
+	/*mysql, err := sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
 	if err != nil {
 		log.Println("Failed to open db : ", err)
 		return 0, err
 	}
-	defer mysql.Close()
+	defer mysql.Close()*/
 
-	result, err := mysql.Exec(query)
+	result, err := Mysql.Exec(query)
 	if err != nil {
 		log.Println("Failed to execute : ", err)
 		return 0, err
@@ -72,4 +73,22 @@ func ExecuteQuery(query string) (int64, error) {
 	}
 
 	return success, nil
+}
+
+func CheckPing() {
+	var err error
+	if Mysql == nil {
+		Mysql, err = sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
+		if err != nil {
+			panic(err)
+		}
+	}
+	err = Mysql.Ping()
+	if err != nil {
+		Mysql, err = sql.Open("mysql", "poker:fake@tcp(localhost:3306)/game_poker")
+		if err != nil {
+			panic(err)
+		}
+	}
+
 }

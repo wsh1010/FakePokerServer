@@ -106,7 +106,7 @@ func handle_AddCoin() func(http.ResponseWriter, *http.Request) {
 
 func getuserstatus(userID string) (User_Status, int) {
 	var status User_Status
-	query := fmt.Sprintf("SELECT EXISTS (SELECT * FROM T_USERS_GAMEINFO WHERE id = '%s');", userID)
+	query := fmt.Sprintf("SELECT EXISTS (SELECT * FROM t_users_gameinfo WHERE id = '%s');", userID)
 	row, err := db.SelectQueryRow(query)
 	if err != nil {
 		log.Println("db error : ", err)
@@ -145,7 +145,7 @@ func getuserstatus(userID string) (User_Status, int) {
 }
 
 func saveUser(userID string, userNick string) int {
-	query := fmt.Sprintf("INSERT INTO T_USERS_GAMEINFO (`id`, `nick`, `coins`) VALUES ('%s', '%s', '30');", userID, userNick)
+	query := fmt.Sprintf("INSERT INTO t_users_gameinfo (`id`, `nick`, `coins`) VALUES ('%s', '%s', '30');", userID, userNick)
 	result, err := db.ExecuteQuery(query)
 	if err != nil {
 		//error
@@ -160,14 +160,14 @@ func saveUser(userID string, userNick string) int {
 }
 
 func saveUserCoin(userID string, coins int) int {
-	query := fmt.Sprintf("SELECT coins FROM T_USERS_GAMEINFO WHERE id = '%s'", userID)
+	query := fmt.Sprintf("SELECT coins FROM t_users_gameinfo WHERE id = '%s'", userID)
 	row, _ := db.SelectQueryRow(query)
 	var user_coin int
 	row.Scan(&user_coin)
 
 	user_coin += coins
 
-	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET coins = '%d' WHERE id = '%s'", user_coin, userID)
+	query = fmt.Sprintf("UPDATE t_users_gameinfo SET coins = '%d' WHERE id = '%s'", user_coin, userID)
 	db.ExecuteQuery(query)
 
 	return http.StatusOK

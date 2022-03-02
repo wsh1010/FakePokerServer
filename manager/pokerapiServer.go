@@ -1,10 +1,13 @@
 package manager
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"sync"
+	"syscall"
+	"time"
 
 	"fakepokerserver/module/db"
 )
@@ -29,12 +32,57 @@ const (
 )
 
 func RunningServer(wg *sync.WaitGroup, done chan int) {
+	defer log.Println("end RunningServer")
 	if wg != nil {
 		defer wg.Done()
+
 	}
 
 	db.InitDB()
 	OpenServer()
+}
+func CheckDB(wg *sync.WaitGroup, done chan int) {
+	defer log.Println("end CheckDB")
+	if wg != nil {
+		defer wg.Done()
+	}
+	for {
+		timer1 := time.NewTimer(time.Minute * 10)
+		db.CheckPing()
+		query := "SELECT t_rooms_info.room_id, COUNT(DISTINCT t_users_gameinfo.id) FROM t_rooms_info LEFT JOIN t_users_gameinfo ON t_rooms_info.room_id = t_users_gameinfo.room_id GROUP BY t_rooms_info.room_id ;"
+		rows, err := db.SelectQueryRows(query)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var roomID string
+			var count int
+			rows.Scan(&roomID, &count)
+			if count == 0 {
+				query := fmt.Sprintf("DELETE FROM t_rooms_info WHERE room_id = '%s';", roomID)
+				db.ExecuteQuery(query)
+			}
+		}
+		count := 0
+		for {
+			timer2 := time.NewTimer(time.Second * 10)
+			<-timer2.C
+			count++
+			if count == 59 {
+				break
+			}
+			if len(done) == 0 {
+				log.Println("return")
+				return
+			}
+		}
+
+		<-timer1.C
+	}
+
 }
 
 func OpenServer() {
@@ -59,5 +107,10 @@ func OpenServer() {
 		log.Println("Failed to listen : ", err)
 		os.Exit(1)
 	}
+	log.Println("end openServer ")
+	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+
+}
+func CloseServer() {
 
 }

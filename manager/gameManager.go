@@ -145,26 +145,14 @@ func Handler_Game_Result() func(http.ResponseWriter, *http.Request) {
 			userID, exist := r.Header["Userid"]
 			if !exist {
 				log.Println("not userID")
-				var requestBody status_responseBody
-				requestBody.Error = "not userID"
-				requestBodyBytes, _ := json.Marshal(requestBody)
 				w.WriteHeader(http.StatusNotImplemented)
-				w.Write(requestBodyBytes)
 				return
 			}
 			URISplit := strings.Split(r.RequestURI, "/")
 			roomID := URISplit[len(URISplit)-1]
-			responseBody, result := GetResult(roomID, userID[0])
-			if result != http.StatusOK {
-				requestBodyBytes, _ := json.Marshal(responseBody)
-				w.WriteHeader(result)
-				w.Write(requestBodyBytes)
-				return
-			}
-			result = SetUserRoomInit(roomID, userID[0], "wait", "room")
-			responseBodyBytes, _ := json.Marshal(responseBody)
+
+			result := SetUserRoomInit(roomID, userID[0], "wait", "room")
 			w.WriteHeader(result)
-			w.Write(responseBodyBytes)
 		}
 	}
 }
@@ -240,19 +228,19 @@ func shuffle(r *rand.Rand) []string {
 	return cards
 }
 
-func forgame() {
+func makeCards() string {
 	//카드생성
 	timeSource := rand.NewSource(time.Now().UnixNano())
 	random := rand.New(timeSource)
 	card := shuffle(random)
 	dbCard := strings.Join(card, "-")
-	log.Println(dbCard)
+	return dbCard
 	//방이름
-	room_id, err := uuid.NewV4()
+	/*room_id, err := uuid.NewV4()
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println(room_id)
+	log.Println(room_id)*/
 }
 
 func CreateRoom(userID string) roomResult_responseBdy {
@@ -276,10 +264,8 @@ func CreateRoom(userID string) roomResult_responseBdy {
 	if err != nil {
 		log.Println(err)
 	}
-	timeSource := rand.NewSource(time.Now().UnixNano())
-	random := rand.New(timeSource)
-	card := shuffle(random)
-	dbCard := strings.Join(card, "-")
+
+	dbCard := makeCards()
 	query = fmt.Sprintf("INSERT INTO t_rooms_info VALUES ('%s', '%s', NULL, '%d', '%s', NULL);", room_id.String(), "user_wait", 0, dbCard)
 	db.ExecuteQuery(query)
 	query = fmt.Sprintf("UPDATE t_users_gameinfo SET room_id = '%s', status = 'room', room_status = 'wait' WHERE id = '%s'", room_id.String(), userID)
@@ -287,6 +273,7 @@ func CreateRoom(userID string) roomResult_responseBdy {
 	result.RoomID = room_id.String()
 	return result
 }
+
 func JoinRoom(userID string) roomResult_responseBdy {
 	var result roomResult_responseBdy
 	query := "SELECT room_id FROM t_rooms_info WHERE status = 'user_wait';"
@@ -357,7 +344,8 @@ func ExitRoom(roomID string, userID string) {
 		GameOver(roomID, me, you)
 	}
 
-	query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'user_wait', start_player = NULL where room_id = '%s';", roomID)
+	dbCard := makeCards()
+	query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'user_wait', round='0', cards='%s', start_player = NULL where room_id = '%s';", dbCard, roomID)
 	db.ExecuteQuery(query)
 	query = fmt.Sprintf("UPDATE t_users_gameinfo SET status = 'wait', room_id = null where room_id = '%s' and id = '%s'", roomID, userID)
 	db.ExecuteQuery(query)
@@ -380,16 +368,23 @@ func StartGame(roomID string, users_id []string) {
 		query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', start_player = '%s', round = '%d' WHERE room_id = '%s'", start_Player.String, round, roomID)
 		db.ExecuteQuery(query)
 	} else {
-		round++
-		query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', round = '%d' WHERE room_id = '%s'", round, roomID)
-		db.ExecuteQuery(query)
+		if round == 10 {
+			round = 1
+			dbCards := makeCards()
+			query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', cards = '%s', round = '%d' WHERE room_id = '%s'", dbCards, round, roomID)
+			db.ExecuteQuery(query)
+		} else {
+			round++
+			query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'play', round = '%d' WHERE room_id = '%s'", round, roomID)
+			db.ExecuteQuery(query)
+		}
 	}
 
 	for _, id := range users_id {
 		if id == start_Player.String {
-			query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET status = 'play', room_status = 'turn' WHERE room_id = '%s' and id = '%s'", roomID, id)
+			query = fmt.Sprintf("UPDATE t_users_gameinfo SET status = 'play', room_status = 'turn' WHERE room_id = '%s' and id = '%s'", roomID, id)
 		} else {
-			query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET status = 'play', room_status = 'wait' WHERE room_id = '%s' and id  = '%s'", roomID, id)
+			query = fmt.Sprintf("UPDATE t_users_gameinfo SET status = 'play', room_status = 'wait' WHERE room_id = '%s' and id  = '%s'", roomID, id)
 		}
 		db.ExecuteQuery(query)
 	}
@@ -470,37 +465,17 @@ func GetRoomStatus(roomID string, userID string) (status_responseBody, int) {
 	return result, http.StatusOK
 }
 
-func GetResult(roomID string, userID string) (result_responseBody, int) {
-	var result result_responseBody
-	query := fmt.Sprintf("SELECT room_status, bet, coins, COUNT(*) FROM t_users_gameinfo WHERE id = '%s' and room_id='%s';", userID, roomID)
-	row, err := db.SelectQueryRow(query)
-	if err != nil {
-		log.Println(err)
-		var error_result result_responseBody
-		error_result.Error = "DB Error"
-		return error_result, http.StatusInternalServerError
-	}
-	var count int
-	row.Scan(&result.Result, &result.GetCoin, &result.Coins, &count)
-	if count <= 0 {
-		var error_result result_responseBody
-		error_result.Error = "Not found id or room"
-		return error_result, http.StatusNotImplemented
-	}
-	return result, http.StatusOK
-}
-
 func SetUserRoomInit(roomID string, userID string, room_status string, status string) int {
-	query := fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET status = '%s', room_status = '%s', bet = '0' where id = '%s' and room_id = '%s';", status, room_status, userID, roomID)
+	query := fmt.Sprintf("UPDATE t_users_gameinfo SET status = '%s', room_status = '%s', bet = '0' where id = '%s' and room_id = '%s';", status, room_status, userID, roomID)
 	db.ExecuteQuery(query)
-	query = fmt.Sprintf("UPDATE T_ROOMS_INFO SET status = 'ready_wait' WHERE room_id = '%s'", roomID)
+	query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'ready_wait' WHERE room_id = '%s'", roomID)
 	db.ExecuteQuery(query)
 
 	return http.StatusOK
 }
 
 func SetUserRoomStatus(roomID string, userID string, status string, bet int) int {
-	query := fmt.Sprintf("SELECT room_status, bet, coins from T_USERS_GAMEINFO where id = '%s' and room_id = '%s';", userID, roomID)
+	query := fmt.Sprintf("SELECT room_status, bet, coins from t_users_gameinfo where id = '%s' and room_id = '%s';", userID, roomID)
 	row, err := db.SelectQueryRow(query)
 	if err != nil {
 		return http.StatusInternalServerError
@@ -520,7 +495,7 @@ func SetUserRoomStatus(roomID string, userID string, status string, bet int) int
 		u_bet = 0
 	}
 
-	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET bet = '%d', coins = '%d', room_status = '%s' where id = '%s' and room_id = '%s';", u_bet, u_coins, status, userID, roomID)
+	query = fmt.Sprintf("UPDATE t_users_gameinfo SET bet = '%d', coins = '%d', room_status = '%s' where id = '%s' and room_id = '%s';", u_bet, u_coins, status, userID, roomID)
 	success, err := db.ExecuteQuery(query)
 
 	if err != nil {
@@ -569,10 +544,10 @@ func ProcessResult(userID string, result endTurn_requestBody) {
 		GameOver(result.RoomID, user_I, user_You)
 		return
 	}
-	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = 'wait', bet = '%d', coins = '%d' where id = '%s' and room_id = '%s';",
+	query = fmt.Sprintf("UPDATE t_users_gameinfo SET room_status = 'wait', bet = '%d', coins = '%d' where id = '%s' and room_id = '%s';",
 		user_I.UserBet, user_I.Usercoins, user_I.UserID, result.RoomID)
 	db.ExecuteQuery(query)
-	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = 'turn' where id = '%s' and room_id = '%s';", user_You.UserID, result.RoomID)
+	query = fmt.Sprintf("UPDATE t_users_gameinfo SET room_status = 'turn' where id = '%s' and room_id = '%s';", user_You.UserID, result.RoomID)
 	db.ExecuteQuery(query)
 }
 
@@ -641,12 +616,12 @@ func GameOver(room_id string, p1 status_user, p2 status_user) {
 			p2.UserStatus = "draw"
 		}
 	}
-	query := fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = '%s', bet = '%d', coins = '%d' WHERE id = '%s' and room_id = '%s';",
+	query := fmt.Sprintf("UPDATE t_users_gameinfo SET room_status = '%s', bet = '%d', coins = '%d' WHERE id = '%s' and room_id = '%s';",
 		p1.UserStatus, p1.UserBet, p1.Usercoins, p1.UserID, room_id)
 	db.ExecuteQuery(query)
-	query = fmt.Sprintf("UPDATE T_USERS_GAMEINFO SET room_status = '%s', bet = '%d', coins = '%d' WHERE id = '%s' and room_id = '%s';",
+	query = fmt.Sprintf("UPDATE t_users_gameinfo SET room_status = '%s', bet = '%d', coins = '%d' WHERE id = '%s' and room_id = '%s';",
 		p2.UserStatus, p2.UserBet, p2.Usercoins, p2.UserID, room_id)
 	db.ExecuteQuery(query)
-	query = fmt.Sprintf("UPDATE T_ROOMS_INFO SET status = 'result' WHERE room_id = '%s';", room_id)
+	query = fmt.Sprintf("UPDATE t_rooms_info SET status = 'result' WHERE room_id = '%s';", room_id)
 	db.ExecuteQuery(query)
 }
